@@ -50,8 +50,9 @@ def execute_chunker(event: Dict, _c: Dict):
     :param _c: lambda expected context object (unused)
     :returns: None
     """
-
+    # this can be replaced with a call to fetch records to process
     records = event.get('payload', [])
+
     _input = {'records': records, 'recordsRemaining': len(records)}
     _start_execution(name='chunky', input=_input, state_machine_arn=STATE_MACHINE_ARN)
 

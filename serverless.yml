@@ -55,6 +55,11 @@ functions:
           - states:StartExecution
         Resource:
           - "${self:custom.statesArnPrefix}Chunker"
+    events:
+      - schedule:
+          name: Chunky-ExecuteChunker
+          description: Run chunker on cadence
+          rate: cron(0 10 ? * SUN *)
 
   chunk:
     handler: chunky.chunk
