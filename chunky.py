@@ -35,6 +35,7 @@ def _start_execution(name: str, input: Dict, state_machine_arn: str):
     :param state_machine_arn: ARN for statemachine to be executed
     :returns: None
     """
+
     try:
         SFN_CLIENT.start_execution(stateMachineArn=state_machine_arn, name=f'{name}_{time()}', input=json.dumps(input))
     except ClientError:
@@ -47,8 +48,9 @@ def execute_chunker(event: Dict, _c: Dict):
 
     :param event: lambda expected event object
     :param _c: lambda expected context object (unused)
-    :returns: none
+    :returns: None
     """
+
     records = event.get('payload', [])
     _input = {'records': records, 'recordsRemaining': len(records)}
     _start_execution(name='chunky', input=_input, state_machine_arn=STATE_MACHINE_ARN)
@@ -56,12 +58,13 @@ def execute_chunker(event: Dict, _c: Dict):
 
 def chunk(event: Dict, _c: Dict) -> Dict:
     """
-    Lambda function to get the latest active base AMIs to evaluate for patching.
+    Lambda function to process a chunk of the records.
 
     :param event: lambda expected event object
     :param _c: lambda expected context object (unused)
-    :returns: list of current, active AMIs to check for patching
+    :returns: results used for downstream processing and conditional checks
     """
+
     chunk_size = 5
     records_to_process = event.get('records', [])
 
@@ -76,18 +79,23 @@ def chunk(event: Dict, _c: Dict) -> Dict:
     print(f'This chunk was processed:\n{chunk}')
     response = random.choice([200, 429, 503])
 
-    return {'processedChunk': chunk, 'chunkResponse': response, 'records': records, 'recordsRemaining': len(records)}
+    return {'chunkProcessed': chunk, 'chunkResponse': response, 'records': records, 'recordsRemaining': len(records)}
 
 
-def failed_chunk(event: Dict, _c: Dict) -> List[Dict]:
+def failed_chunk(event: Dict, _c: Dict) -> Dict:
     """
-    Lambda function to get the latest active base AMIs to evaluate for patching.
+    Lambda function to handle a failed chunk to allow processing to continue.
 
     :param event: lambda expected event object
     :param _c: lambda expected context object (unused)
-    :returns: list of current, active AMIs to check for patching
+    :returns: remaining records to be processed
     """
-    print(f'These failed to process:\n{event.get("processedChunk")}')
+
+    print(f'These failed to process:\n{event.get("chunkProcessed")}')
+
+    # you would want to do something here with the `chunkProcessed`
+    # like send to DynamoDB for offline processing or retry later, etc.
     del event['chunkResponse']
-    del event['processedChunk']
+    del event['chunkProcessed']
+
     return event

@@ -10,6 +10,12 @@
   <img src="https://img.shields.io/badge/code%20style-black-000000.svg" alt="Black">
 </p>
 
+
+<p align="center">
+  <img src="step_function.png" alt="step function" height="512px">
+</p>
+
+
 ### Common Commands
 
 Use the `make help` command to view prepared commands for use within this codebase. Make is your friend, make will help
