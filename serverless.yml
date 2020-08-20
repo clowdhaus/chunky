@@ -1,0 +1,122 @@
+service: chunky
+
+frameworkVersion: '>=1.79.0'
+
+custom:
+  account_id: ${env:ACCOUNT_ID}
+  lambdaArnPrefix: arn:aws:lambda:${self:provider.region}:${self:custom.account_id}:function:${self:service}-${self:provider.stage}
+  statesArnPrefix: arn:aws:states:${self:provider.region}:${self:custom.account_id}:stateMachine:${self:service}
+  pythonRequirements:
+    usePoetry: false
+    dockerizePip: true
+
+provider:
+  name: aws
+  runtime: python3.8
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-west-2'}
+  timeout: 30
+  memorySize: 256
+  logRetentionInDays: 30
+  deploymentBucket:
+    name: serverless-${self:custom.account_id}-${self:provider.region}
+    serverSideEncryption: AES256
+  versionFunctions: false
+  environment:
+    REGION: ${self:provider.region}
+    PYTHONWARNINGS: ignore # https://github.com/jmespath/jmespath.py/issues/187
+  tags:
+    Service: ${self:service}
+    CreatedBy: serverless
+    Repository: https://github.com/clowdhaus/chunky
+
+package:
+  exclude:
+    - '**/*'
+  include:
+    - '*.py'
+
+plugins:
+  - serverless-iam-roles-per-function
+  - serverless-python-requirements
+  - serverless-step-functions
+
+functions:
+  executeChunker:
+    handler: chunky.execute_chunker
+    description: Start chunking all the things
+    environment:
+      STATE_MACHINE_ARN: ${self:resources.Outputs.ChunkAutomation.Value}
+    iamRoleStatementsInherit: true
+    iamRoleStatementsName: ${self:service}-${self:provider.stage}-execute-chunker
+    iamRoleStatements:
+      - Effect: "Allow"
+        Action:
+          - states:StartExecution
+        Resource:
+          - "${self:custom.statesArnPrefix}Chunker"
+
+  chunk:
+    handler: chunky.chunk
+    description: Process a chunk
+    iamRoleStatementsInherit: true
+    iamRoleStatementsName: ${self:service}-${self:provider.stage}-chunk
+
+  failedChunk:
+    handler: chunky.failed_chunk
+    description: Do something here to handle failed chunk (shove in DynamoDB or something)
+    iamRoleStatementsInherit: true
+    iamRoleStatementsName: ${self:service}-${self:provider.stage}-failed-chunk
+
+resources:
+  Description: Chunk all the things
+  Resources:
+  Outputs:
+    ChunkAutomation:
+      Description: ARN for the chunking state machine
+      Value:
+        Ref: ChunkyChunker
+
+stepFunctions:
+  stateMachines:
+    chunkyChunker:
+      name: ${self:service}Chunker
+      definition:
+        Comment: Chunk all the things
+        StartAt: Chunk
+        States:
+          Chunk:
+            Type: Task
+            Comment: Process a chunk
+            Resource: ${self:custom.lambdaArnPrefix}-chunk
+            Next: ChunkResult
+          ChunkResult:
+            Type: Choice
+            Choices:
+              - Variable: '$.chunkResponse'
+                NumericEquals: 429
+                Next: WaitForDuration
+              - Variable: '$.chunkResponse'
+                NumericGreaterThanEquals: 400
+                Next: FailedChunk
+            Default: RemainingChunks
+          WaitForDuration:
+            Type: Wait
+            Comment: Pause for duration due to throttling
+            Seconds: 30 # obviously make this as long as necessary
+            Next: Chunk
+          FailedChunk:
+            Type: Task
+            Comment: Do something here to handle failed chunk (shove in DynamoDB or something)
+            Resource: ${self:custom.lambdaArnPrefix}-failedChunk
+            Next: RemainingChunks
+          RemainingChunks:
+            Type: Choice
+            Choices:
+              - Variable: '$.recordsRemaining'
+                NumericGreaterThan: 0
+                Next: Chunk
+            Default: FinalState
+          FinalState:
+            Type: Pass
+            End: true

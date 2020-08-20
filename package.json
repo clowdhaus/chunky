@@ -1,0 +1,30 @@
+{
+  "name": "chunky",
+  "version": "1.0.0",
+  "description": "I pick chunks up, I put chunks down",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:clowdhaus/chunky.git"
+  },
+  "keywords": [
+    "event-driven",
+    "serverless",
+    "lambda",
+    "step-function"
+  ],
+  "author": "Clowd Haus, LLC",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/clowdhaus/chunky/issues"
+  },
+  "homepage": "https://github.com/clowdhaus/chunky/#readme",
+  "scripts": {
+    "test": "echo 'Need to write tests!'"
+  },
+  "dependencies": {
+    "serverless": "^1.79.0",
+    "serverless-iam-roles-per-function": "^2.0.2",
+    "serverless-python-requirements": "^5.1.0",
+    "serverless-step-functions": "^2.22.1"
+  }
+}
