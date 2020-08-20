@@ -57,3 +57,6 @@ coverage.xml
 *.coverage
 .hypothesis/
 .mypy_cache/
+
+# Ignore lockfiles for now
+*.lock
